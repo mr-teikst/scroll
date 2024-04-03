@@ -2,8 +2,11 @@ package provertask
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gorm.io/gorm"
 
 	"scroll-tech/common/version"
@@ -114,4 +117,22 @@ func (b *BaseProverTask) getHardForkNumberByName(forkName string) (uint64, error
 	}
 
 	return hardForkNumber, nil
+}
+
+var getTaskCounterInitOnce sync.Once
+
+func newGetTaskCounterVec(factory promauto.Factory, taskType string) *prometheus.CounterVec {
+	var counterVec *prometheus.CounterVec = nil
+
+	getTaskCounterInitOnce.Do(func() {
+		counterVec = factory.NewCounterVec(prometheus.CounterOpts{
+			Name: "coordinator_get_task_count",
+			Help: "Multi dimensions get task counter.",
+		}, []string{"task_type",
+			coordinatorType.LabelProverName,
+			coordinatorType.LabelProverPublicKey,
+			coordinatorType.LabelProverVersion})
+	})
+
+	return counterVec.MustCurryWith(prometheus.Labels{"task_type": taskType})
 }
